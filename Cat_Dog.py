@@ -28,7 +28,7 @@ train_cat_img =[train_path + name for name in os.listdir(train_path) if 'cat' in
 test_set_img = [test_path + name for name in os.listdir(test_path)]
 
 train_set = train_dog_img[:train_dog] + train_cat_img[:train_cat]
-test_set = test_set_img[:telest_size]
+test_set = test_set_img[:test_size]
 train_label = np.array((['dogs'] * train_dog) + (['cats'] * train_dog))
 
 ## Image Preprocessing
@@ -78,7 +78,7 @@ batch_size = 32
 num_labels = 2
 keep_prob = tf.placeholder(tf.float32)
 
-with tf.name_score('inputs'):
+with tf.name_scope('inputs'):
     train_x=tf.placeholder(tf.float32,
                            shape=(None, image_size, image_size, depth),
                            name='x_input')
@@ -122,12 +122,22 @@ with tf.name_scope('conv2'):
         tf.summary.histogram('Conv2Pool', h_pool2)
         # output size 56x56x32
 final_size = final_size/2
-# ## conv3 layer ##
 
-W_conv3 = weight_variable([3,3, 32, 64], name='weights_conv3') # patch 3x3, in size 32, out size 64
-b_conv3 = bias_variable([64], name='bias_conv3')
-h_conv3 = tf.nn.relu(conv2d(h_pool2, W_conv3, name='conv3') + b_conv3) # output size 56x56x64
-h_pool3 = max_pool_2x2(h_conv3, name='pool3')                                         # output size 28x28x64
+## conv3 layer ##
+with tf.name_scope('conv3'):
+    with tf.name_scope('weights'):
+        W_conv3 = weight_variable([3,3, 32, 64], name='weights_conv3') # patch 3x3, in size 32, out size 64
+        tf.summary.histogram('conv3Weights', W_conv3)
+    with tf.name_scope('biases'):
+        b_conv3 = bias_variable([64], name='bias_conv3')
+        tf.summary.histogram('conv3Biases', b_conv3)
+    with tf.name_scope('Conv_layer'):
+        h_conv3 = tf.nn.relu(conv2d(h_pool2, W_conv3, name='conv3') + b_conv3) # output size 56x56x64
+        tf.summary.histogram('Conv3Cov', h_conv3)
+    with tf.name_scope('pool_layer'):
+        h_pool3 = max_pool_2x2(h_conv3, name='pool3')
+        tf.summary.histogram('Conv3Pool', h_pool3)
+        # output size 28x28x64
 final_size = final_size/2
 
 ## fc1 layer ##
