@@ -46,45 +46,21 @@ train_dataset, valid_dataset, train_labels, valid_labels = train_test_split(trai
 print train_dataset.shape, valid_dataset.shape, train_labels.shape, valid_labels.shape
 
 ####build tensorflow model
-def conv2d(x, W, name=name):
-    # stride [1, x_movement, y_movement, 1]
-    # Must have strides[0] = strides[3] = 1
-    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME', name=name)
 
-# def add_laryer_cnn(inputs, patch_size=3, input_size, output_size, n_layer, activation_function=None):
-#     ## add a new CNN layer and return the output
-#     layer_name = 'layer%s' % n_layer
-#
-#     with tf.name_scope(layer_name):
-#         with tf.name_scope('weights'):
-#             #patch 3x3, in size 3, out size 32
-#             Weight = tf.Variable(tf.truncated_normal([patch_size,
-#                                                       patch_size,
-#                                                       input_size,
-#                                                       output_size],
-#                                                     dtype=tf.float32,
-#                                                     stddev=0.1), name='W')
-#             tf.summary.histogram(layer_name + '/weights', Weight)
-#
-#         with tf.name_scope('biases'):
-#             biases = tf.Variable(tf.constant(0.1, shape=[output_size], dtype=tf.float32),
-#                                  trainable=True, name='b')
-#             tf.summary.histogram('biases')
-#
-#         with tf.name_scope('conv2d'):
-#             h_conv = activation_function(conv2d(inputs, Weight, name='conv') + biases)
-#             tf.summary.histogram('Conv output', h_conv)
-#
-#
 
 
 def weight_variable(shape, name):
     initial = tf.truncated_normal(shape, dtype=tf.float32, stddev=0.1)
     return tf.Variable(initial, name=name)
+
 def bias_variable(shape, name):
     initial = tf.constant(0.1, shape=shape, dtype=tf.float32)
     return tf.Variable(initial, trainable=True, name=name)
 
+def conv2d(x, W, name=name):
+    # stride [1, x_movement, y_movement, 1]
+    # Must have strides[0] = strides[3] = 1
+    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME', name=name)
 
 def max_pool_2x2(x, name=name):
     # stride [1, x_movement, y_movement, 1]
@@ -110,21 +86,44 @@ with tf.name_score('inputs'):
                            shape=(None, num_labels),
                            name='y_input')
 
-
-## conv1 layer ##
-W_conv1 = weight_variable([3,3, 3,32], name='weights_conv1') # patch 3x3, in size 3, out size 32
-b_conv1 = bias_variable([32], name='bias_conv1')
-h_conv1 = tf.nn.relu(conv2d(train_x, W_conv1, name='conv1') + b_conv1) # output size 224x224x32
-h_pool1 = max_pool_2x2(h_conv1, name='pool1')     # output size 112x112x32
+with tf.name_scope('conv1'):
+    ## conv1 layer ##
+    with tf.name_scope('weights'):
+        W_conv1 = weight_variable([3,3, 3,32], name='weights_conv1') # patch 3x3, in size 3, out size 32
+        tf.summary.histogram('conv1Weights', W_conv1)
+    with tf.name_scope('biases'):
+        b_conv1 = bias_variable([32], name='bias_conv1')
+        tf.summary.histogram('conv1Biases', b_conv1)
+    with tf.name_scope('Conv_layer'):
+        h_conv1 = tf.nn.relu(conv2d(train_x, W_conv1, name='conv1') + b_conv1)
+        # output size 112x112x32
+        tf.summary.histogram('Conv1Cov', h_conv1)
+    with tf.name_scope('pool_layer'):
+        h_pool1 = max_pool_2x2(h_conv1, name='pool1')
+        # output size 112x112x32
+        tf.summary.histogram('Conv1Pool', h_pool1)
 final_size = image_size/2
-    #
+
 # ## conv2 layer ##
-W_conv2 = weight_variable([3,3, 32, 32], name='weights_conv2') # patch 3x3, in size 32, out size 32
-b_conv2 = bias_variable([32], name='bias_conv2')
-h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2, name='conv2') + b_conv2) # output size 112x112x32
-h_pool2 = max_pool_2x2(h_conv2, name='pool2')                                         # output size 56x56x32
+with tf.name_scope('conv2'):
+    with tf.name_scope('weights'):
+        W_conv2 = weight_variable([3,3, 32, 32], name='weights_conv2')
+        # patch 3x3, in size 32, out size 32
+        tf.summary.histogram('conv2Weights', W_conv2)
+    with tf.name_scope('biases'):
+        b_conv2 = bias_variable([32], name='bias_conv2')
+        tf.summary.histogram('conv2Biases', b_conv2)
+    with tf.name_scope('Conv_layer'):
+        h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2, name='conv2') + b_conv2)
+        # output size 56x56x32
+        tf.summary.histogram('Conv2Cov', h_conv2)
+    with tf.name_scope('pool_layer'):
+        h_pool2 = max_pool_2x2(h_conv2, name='pool2')
+        tf.summary.histogram('Conv2Pool', h_pool2)
+        # output size 56x56x32
 final_size = final_size/2
 # ## conv3 layer ##
+
 W_conv3 = weight_variable([3,3, 32, 64], name='weights_conv3') # patch 3x3, in size 32, out size 64
 b_conv3 = bias_variable([64], name='bias_conv3')
 h_conv3 = tf.nn.relu(conv2d(h_pool2, W_conv3, name='conv3') + b_conv3) # output size 56x56x64
