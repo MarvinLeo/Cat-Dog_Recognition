@@ -1,63 +1,10 @@
 import glob
 import os
 import re
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 import numpy as np
-import pandas as pd
-import PIL
-from PIL import Image
-
-def norm_image(img):
-    """
-    Normalize PIL image
-
-    Normalizes luminance to (mean,std)=(0,1), and applies a [1%, 99%] contrast stretch
-    """
-    img_y, img_b, img_r = img.convert('YCbCr').split()
-
-    img_y_np = np.asarray(img_y).astype(float)
-
-    img_y_np /= 255
-    img_y_np -= img_y_np.mean()
-    img_y_np /= img_y_np.std()
-    scale = np.max([np.abs(np.percentile(img_y_np, 1.0)),
-                    np.abs(np.percentile(img_y_np, 99.0))])
-    img_y_np = img_y_np / scale
-    img_y_np = np.clip(img_y_np, -1.0, 1.0)
-    img_y_np = (img_y_np + 1.0) / 2.0
-
-    img_y_np = (img_y_np * 255 + 0.5).astype(np.uint8)
-
-    img_y = Image.fromarray(img_y_np)
-
-    img_ybr = Image.merge('YCbCr', (img_y, img_b, img_r))
-
-    img_nrm = img_ybr.convert('RGB')
-    return img_nrm
-
-
-def resize_image(img, size):
-    """
-    Resize PIL image
-
-    Resizes image to be square with sidelength size. Pads with black if needed.
-    """
-    # Resize
-    n_x, n_y = img.size
-    if n_y > n_x:
-        n_y_new = size
-        n_x_new = int(size * n_x / n_y + 0.5)
-    else:
-        n_x_new = size
-        n_y_new = int(size * n_y / n_x + 0.5)
-    img_res = img.resize((n_x_new, n_y_new), resample=PIL.Image.BICUBIC)
-
-    # Pad the borders to create a square image
-    img_pad = Image.new('RGB', (size, size), (128, 128, 128))
-    ulc = ((size - n_x_new) // 2, (size - n_y_new) // 2)
-    img_pad.paste(img_res, ulc)
-    return img_pad
+import preprocessing as pre
+import tensorflow as tf
 
 #Set sample path
 train_path = "train/"
@@ -73,7 +20,7 @@ valid_rate = 0.2
 #Set test size
 test_size = 500
 
-image_size = 224        #set image size the same for training
+image_size = 112        #set image size the same for training
 depth = 3               #set the image as RGB or GreyScale
 
 train_dog_img =[train_path + name for name in os.listdir(train_path) if 'dog' in name]
@@ -81,66 +28,33 @@ train_cat_img =[train_path + name for name in os.listdir(train_path) if 'cat' in
 test_set_img = [test_path + name for name in os.listdir(test_path)]
 
 train_set = train_dog_img[:train_dog] + train_cat_img[:train_cat]
-test_set = test_set_img[:test_size]
-train_lable = np.array ((['dogs'] * train_dog) + (['cats'] * train_dog))
+test_set = test_set_img[:telest_size]
+train_label = np.array((['dogs'] * train_dog) + (['cats'] * train_dog))
 
-# img = Image.open(train_set[1])
-# # Normalize it
-# img_nrm = norm_image(img)
-#
-# # Resize it
-# img_res = resize_image(img_nrm, image_size)
-# img_data = np.array(img_res, dtype=np.float32)
-# img_data = (img_data - 255.0//2)/255.0
-# print img_data[100]
-# plt.figure(figsize=(8,4))
-# plt.subplot(131)
-# plt.title('Original')
-# plt.imshow(img)
-#
-# plt.subplot(132)
-# plt.title('Normalized')
-# plt.imshow(img_nrm)
-#
-# plt.subplot(133)
-# plt.title('Resized')
-# plt.imshow(img_res)
-#
-# plt.tight_layout()
-# plt.show()
+## Image Preprocessing
+train_norm = pre.prep_data(train_set, image_size, depth)
+test_norm = pre.prep_data(test_set, image_size, depth)
 
-
-def prep_data(images, size, depth):
-    count = len(images)
-    data = np.ndarray((count, size, size, depth), dtype=np.float32)
-
-    for i, image_file in enumerate(images):
-        image = Image.open(image_file)
-        image_nrm = norm_image(image)
-        image_res = resize_image(image_nrm, size)
-        image_data = np.array(image_res.convert('RGB'), dtype=np.float32)
-        image_data = (image_data - 255.0//2)-255.0
-        data[i] = image_data;  # image_data.T
-        if i % 250 == 0: print 'Processed {} of {}'.format(i, count)
-    return data
-#print prep_data(train_set, image_size, depth=3).shape
-
-train_norm = prep_data(train_set, image_size, depth)
-test_norm = prep_data(test_set, image_size, depth)
-
-labels = (train_lable=='cats').astype(np.float32); # set dogs to 0 and cats to 1
+labels = (train_label == 'cats').astype(np.float32) # set dogs to 0 and cats to 1
 labels = (np.arange(2) == labels[:,None]).astype(np.float32)
 
+## create the training and validation set
 train_dataset, valid_dataset, train_labels, valid_labels = train_test_split(train_norm,
                                                                             labels,
-                                                                            test_size = valid_rate,
-                                                                            random_state=4)
+                                                                            test_size=valid_rate,
+                                                                            random_state=1)
 print train_dataset.shape, valid_dataset.shape, train_labels.shape, valid_labels.shape
 
-
-
 ####build tensorflow model
-import tensorflow as tf
+
+# def add_laryer_cnn(inputs, input_size, output_size, n_layer, activation_function=None):
+#     ## add a new CNN layer and return the output
+#     layer_name = 'layer%s' % n_layer
+#
+#     with tf.name_scope(layer_name):
+#         with tf.name_scope('weights'):
+#             #patch 3x3, in size 3, out size 32
+#             Weight = tf.Variable(tf.truncated_normal([in_size, out_size]), name='W')
 
 def weight_variable(shape, name):
     initial = tf.truncated_normal(shape, dtype=tf.float32, stddev=0.1)
