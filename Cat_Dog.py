@@ -46,28 +46,45 @@ train_dataset, valid_dataset, train_labels, valid_labels = train_test_split(trai
 print train_dataset.shape, valid_dataset.shape, train_labels.shape, valid_labels.shape
 
 ####build tensorflow model
+def conv2d(x, W, name=name):
+    # stride [1, x_movement, y_movement, 1]
+    # Must have strides[0] = strides[3] = 1
+    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME', name=name)
 
-# def add_laryer_cnn(inputs, input_size, output_size, n_layer, activation_function=None):
+# def add_laryer_cnn(inputs, patch_size=3, input_size, output_size, n_layer, activation_function=None):
 #     ## add a new CNN layer and return the output
 #     layer_name = 'layer%s' % n_layer
 #
 #     with tf.name_scope(layer_name):
 #         with tf.name_scope('weights'):
 #             #patch 3x3, in size 3, out size 32
-#             Weight = tf.Variable(tf.truncated_normal([in_size, out_size]), name='W')
+#             Weight = tf.Variable(tf.truncated_normal([patch_size,
+#                                                       patch_size,
+#                                                       input_size,
+#                                                       output_size],
+#                                                     dtype=tf.float32,
+#                                                     stddev=0.1), name='W')
+#             tf.summary.histogram(layer_name + '/weights', Weight)
+#
+#         with tf.name_scope('biases'):
+#             biases = tf.Variable(tf.constant(0.1, shape=[output_size], dtype=tf.float32),
+#                                  trainable=True, name='b')
+#             tf.summary.histogram('biases')
+#
+#         with tf.name_scope('conv2d'):
+#             h_conv = activation_function(conv2d(inputs, Weight, name='conv') + biases)
+#             tf.summary.histogram('Conv output', h_conv)
+#
+#
+
 
 def weight_variable(shape, name):
     initial = tf.truncated_normal(shape, dtype=tf.float32, stddev=0.1)
     return tf.Variable(initial, name=name)
-
 def bias_variable(shape, name):
     initial = tf.constant(0.1, shape=shape, dtype=tf.float32)
     return tf.Variable(initial, trainable=True, name=name)
 
-def conv2d(x, W, name=name):
-    # stride [1, x_movement, y_movement, 1]
-    # Must have strides[0] = strides[3] = 1
-    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME', name=name)
 
 def max_pool_2x2(x, name=name):
     # stride [1, x_movement, y_movement, 1]
@@ -84,10 +101,14 @@ def compute_accuracy(v_xs, v_ys):
 batch_size = 32
 num_labels = 2
 keep_prob = tf.placeholder(tf.float32)
-train_x=tf.placeholder(tf.float32,
-                       shape=(None, image_size, image_size, depth))
-train_y=tf.placeholder(tf.float32,
-                       shape=(None, num_labels))
+
+with tf.name_score('inputs'):
+    train_x=tf.placeholder(tf.float32,
+                           shape=(None, image_size, image_size, depth),
+                           name='x_input')
+    train_y=tf.placeholder(tf.float32,
+                           shape=(None, num_labels),
+                           name='y_input')
 
 
 ## conv1 layer ##
